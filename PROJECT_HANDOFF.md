@@ -2,7 +2,7 @@
 
 ## Current checkpoint — September 13, 2026
 
-The authenticated Python/FastAPI bridge is implemented locally, with tests, a Dockerfile, a development Compose file, a TrueNAS deployment template, and a GitHub Actions test/build/publish workflow. The original Mealie deployment scaffold is retained. The next checkpoint must record whether the new bridge commit was pushed and whether its GitHub Actions run passed.
+The authenticated Python/FastAPI bridge is implemented locally, with tests, a Dockerfile, a development Compose file, a TrueNAS deployment template, and a GitHub Actions test/build/publish workflow. The original Mealie deployment scaffold is retained. Implementation commit `15c6fdf5fb0fe851b603ea42d0ff5d75c34af09c` was pushed to `main`. GitHub Actions run https://github.com/alv0026/mealie-integration/actions/runs/34752868488 passed both the Python 3.13 tests and container build/publication. The image is published as `ghcr.io/alv0026/mealie-integration:latest` and `ghcr.io/alv0026/mealie-integration:sha-15c6fdf5fb0fe851b603ea42d0ff5d75c34af09c`. It has not been deployed to TrueNAS.
 
 ## Project and target
 
@@ -34,7 +34,7 @@ The existing `.env` contains `MEALIE_URL`, the user-provided `MEALIE_TOKEN`, and
 - A live read-only search through the bridge returned HTTP 200. Search term `a` returned no items, so live recipe retrieval was skipped. No production recipe was created or changed.
 - Public `/api/app/about` and authenticated `/api/users/self` returned HTTP 200 JSON during the earlier connection check. The previous HTTP 403 no longer reproduces.
 - Development Compose validates with `docker compose -f compose.bridge.yaml config --quiet`.
-- Docker 29.1.3 and Compose 2.40.3 are installed; the Docker service was verified active. This agent session cannot access the Docker socket as the user, and `sudo -n docker build` requires interactive authentication. Local container build has not been verified; use GitHub Actions or have the user run the documented sudo Compose command.
+- Docker 29.1.3 and Compose 2.40.3 are installed; the Docker service was verified active. This agent session cannot access the Docker socket as the user, and `sudo -n docker build` requires interactive authentication. Local container build has not been verified, but the GitHub Actions container build and registry upload succeeded. The user can run the documented sudo Compose command for a local runtime check.
 - GitHub CLI authentication works outside the sandbox with repo/workflow scopes. Network failures inside the sandbox can produce misleading authentication errors.
 - TestClient stalls under the sandbox; the same tests pass quickly outside it. Use escalated test execution where required.
 - Python virtual environment `.venv` contains runtime/test dependencies. FastAPI/Starlette currently emit deprecation warnings for their httpx-based TestClient, but tests pass.
@@ -49,11 +49,9 @@ After deployment, configure a separate Cloudflare HTTPS hostname for the bridge.
 
 ## Next work
 
-1. Finish verification/review, commit and push bridge files, and monitor GitHub Actions. Record the actual run outcome.
-2. Resolve any build or registry publication failures.
-3. Confirm TrueNAS version and deploy the image with private runtime credentials and persistent state.
-4. Verify the deployed bridge, configure its Cloudflare hostname, and configure the chosen chat integration.
-5. Run an explicitly identified end-to-end recipe save/update test. Mocked writes are verified; production writes are not yet exercised.
+1. Confirm TrueNAS version and GHCR package visibility/access, then deploy the published image with private runtime credentials and persistent state.
+2. Verify the deployed bridge, configure its Cloudflare hostname, and configure the chosen chat integration.
+3. Run an explicitly identified end-to-end recipe save/update test. Mocked writes are verified; production writes are not yet exercised.
 
 ## Migration history
 
