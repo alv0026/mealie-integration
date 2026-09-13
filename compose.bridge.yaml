@@ -1,0 +1,23 @@
+services:
+  bridge:
+    build: .
+    image: mealie-bridge:local
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:8000:8000"
+    environment:
+      MEALIE_URL: ${MEALIE_URL:?Set MEALIE_URL in .env}
+      MEALIE_TOKEN: ${MEALIE_TOKEN:?Set MEALIE_TOKEN in .env}
+      BRIDGE_API_KEY: ${BRIDGE_API_KEY:?Set BRIDGE_API_KEY in .env}
+      BRIDGE_DB: /data/bridge.sqlite3
+    volumes:
+      - bridge-data:/data
+    read_only: true
+    tmpfs:
+      - /tmp
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+volumes:
+  bridge-data:

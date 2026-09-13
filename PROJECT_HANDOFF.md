@@ -1,43 +1,60 @@
 # Mealie project handoff
 
-## Purpose
-Build a small API bridge so Aaron and Evelyn can save recipes from chat to Mealie, search existing recipes, retrieve a recipe, and update it.
+## Current checkpoint — September 13, 2026
 
-## Current state
-The Windows project contains only a Mealie deployment scaffold: compose.yaml, .env, .env.example, .gitignore, README.md and .git metadata. The bridge application has NOT been implemented. Docker and Podman were unavailable on the Windows PC when scaffolding was done. No running Mealie database or Docker volume was migrated in this package.
+The authenticated Python/FastAPI bridge is implemented locally, with tests, a Dockerfile, a development Compose file, a TrueNAS deployment template, and a GitHub Actions test/build/publish workflow. The original Mealie deployment scaffold is retained. The next checkpoint must record whether the new bridge commit was pushed and whether its GitHub Actions run passed.
 
-The scaffold uses SQLite, a persistent mealie-data Docker volume, and host port 9925. The earlier task selected Mealie v3.25.1; inspect .env for actual values. Verify compatibility before changing versions. The existing README commands also work in a Linux shell.
+## Project and target
 
-## Intended architecture (planned, not deployed)
-Chat integration -> Cloudflare Tunnel -> authenticated Python/FastAPI bridge -> Mealie API.
-The chat integration mechanism still needs to be selected and tested; merely exposing REST endpoints does not create a working ChatGPT integration.
-Build the bridge image via GitHub Actions, publish to GitHub Container Registry, and deploy as a TrueNAS Custom App. Ubuntu is the development machine; final hosting on TrueNAS was the earlier plan and can be revisited.
-Suggested components: Python, FastAPI, uvicorn, httpx, Dockerfile. Python 3.13-slim was discussed as a candidate base image, not a finalized dependency pin.
-Suggested bridge routes: GET /health, POST /recipes, GET /recipes/search?q=..., GET /recipes/{slug}, PATCH /recipes/{slug}. These are proposed bridge routes, not verified Mealie API endpoints.
-Suggested runtime variables: MEALIE_URL, MEALIE_TOKEN, BRIDGE_API_KEY. Keep tokens out of source control and images. Authenticate chat access separately from the token used by the bridge to access Mealie. Expose only the intended recipe operations.
-The previously discussed Mealie URL was https://m.tamaleopossuminspace.com; verify its current role and availability before use.
+- Local project: `/home/aron2002/projects/mealie-container`.
+- Repository: `https://github.com/alv0026/mealie-integration.git`, branch `main`.
+- Users: Aaron and Evelyn want to save recipes from chat, search, retrieve, and update recipes.
+- Connect to the existing TrueNAS Mealie installation, confirmed by the user as **v3.25.1**. Do not launch another Mealie instance as part of bridge deployment.
+- Working upstream URL: `https://m.tamaleopossuminspace.com`.
+- User-supplied LAN URL: `http://192.168.1.79:30067/`. Earlier agent checks could not connect to it. Public HTTPS now works, so local connectivity is not a blocker for bridge development.
 
-## Ubuntu destination
-Host: 192.168.1.52
-Account: aron2002
-Suggested project directory: ~/projects/mealie-container
-SSH: port 22
-RDP: port 3389. xrdp is running. UFW originally allowed only SSH; the user added an RDP allow rule from Windows IP 192.168.1.119, resolving connectivity.
+## Private configuration
+
+The existing `.env` contains `MEALIE_URL`, the user-provided `MEALIE_TOKEN`, and a separately generated `BRIDGE_API_KEY`. Its permissions are 0600 and Git ignores it. Never print credentials or copy them into source, logs, chat, Docker images, or handoff notes. The bridge key is the client credential; the Mealie token is only for the bridge-to-Mealie connection.
+
+## Implemented behavior
+
+- Public `/health` liveness and `/docs` / `/openapi.json` documentation.
+- Bearer-authenticated recipe search, retrieval, creation, and PATCH routes.
+- Validated name, description, ingredient/instruction text lists, servings, and preparation/cooking times.
+- Updates send only specified fields and do not expose settings/ownership changes.
+- Creation uses Mealie's name-only POST followed by a details PATCH, verified against the live API schema and v3.25.1 controller source.
+- Required creation idempotency keys backed by persistent SQLite reservations. Successful retries return the original receipt; failed or uncertain saves require inspection/recovery rather than repeating a POST. Known partial-save slugs are included in errors. Distinct keys are distinct creation attempts.
+- No delete operation or arbitrary URL proxy.
+- Upstream errors are sanitized; no automatic write retries or redirect following.
+
+## Verification and environment
+
+- 22 mocked tests passed on Python 3.14.4 outside the sandbox. They cover authentication, validation, payload mapping, partial updates, errors, concurrent reservations, and durable retries.
+- A live read-only search through the bridge returned HTTP 200. Search term `a` returned no items, so live recipe retrieval was skipped. No production recipe was created or changed.
+- Public `/api/app/about` and authenticated `/api/users/self` returned HTTP 200 JSON during the earlier connection check. The previous HTTP 403 no longer reproduces.
+- Development Compose validates with `docker compose -f compose.bridge.yaml config --quiet`.
+- Docker 29.1.3 and Compose 2.40.3 are installed; the Docker service was verified active. This agent session cannot access the Docker socket as the user, and `sudo -n docker build` requires interactive authentication. Local container build has not been verified; use GitHub Actions or have the user run the documented sudo Compose command.
+- GitHub CLI authentication works outside the sandbox with repo/workflow scopes. Network failures inside the sandbox can produce misleading authentication errors.
+- TestClient stalls under the sandbox; the same tests pass quickly outside it. Use escalated test execution where required.
+- Python virtual environment `.venv` contains runtime/test dependencies. FastAPI/Starlette currently emit deprecation warnings for their httpx-based TestClient, but tests pass.
+
+## Deployment plan
+
+GitHub Actions tests the bridge and builds/publishes `ghcr.io/alv0026/mealie-integration:latest` and `sha-<full-commit-sha>` on main. Runtime secrets are not needed in GitHub. The image uses Python 3.13 and UID/GID 10001, with persistent state at `/data/bridge.sqlite3`.
+
+`compose.bridge.yaml` runs the bridge locally on loopback port 8000. `deploy/truenas.compose.yaml` proposes LAN port 30068 on TrueNAS and must have placeholders filled privately before use. Confirm TrueNAS version and port availability. Verify GHCR package access before pulling. Retain the state volume across updates.
+
+After deployment, configure a separate Cloudflare HTTPS hostname for the bridge. Keep `m.tamaleopossuminspace.com` pointing to Mealie. The final chat integration mechanism and bridge hostname are not selected. An asynchronous question was sent asking whether users want a dedicated recipe GPT, regular ChatGPT conversations, or another chat app; check for a reply before choosing the connector method. Merely exposing this REST API does not create a working chat integration.
 
 ## Next work
-1. Inspect the copied repository and Git status. Preserve .env and keep it private.
-2. Check Ubuntu Docker/Podman availability and choose the development runtime.
-3. Clarify whether to use an existing Mealie installation or launch this scaffold as a development instance. Existing recipes on TrueNAS require a separate backup/migration if moving that service is desired.
-4. Inspect the actual Mealie version and API schema before implementing API requests.
-5. Implement and test the authenticated bridge, including failed authentication, input validation, upstream failures and duplicate creation handling.
-6. Configure the chosen chat integration, container build/publish workflow, and deployment after local validation.
 
-## Source conversations
-- Mealie Setup Guidance (ChatGPT), September 5, 2026: bridge architecture, recipe workflow for Evelyn, GHCR and TrueNAS deployment plan.
-- Set up Mealie container project (Codex), September 6, 2026: copied repository outside OneDrive and created deployment scaffold. Work paused pending a development machine.
-- Current RDP and migration task, September 12, 2026: confirmed Ubuntu destination and authorized transfer.
+1. Finish verification/review, commit and push bridge files, and monitor GitHub Actions. Record the actual run outcome.
+2. Resolve any build or registry publication failures.
+3. Confirm TrueNAS version and deploy the image with private runtime credentials and persistent state.
+4. Verify the deployed bridge, configure its Cloudflare hostname, and configure the chosen chat integration.
+5. Run an explicitly identified end-to-end recipe save/update test. Mocked writes are verified; production writes are not yet exercised.
 
-## Original locations
-Working project: C:\Users\aaron\Documents\Codex\Projects\mealie-container
-An earlier empty repository copy was left at C:\Users\aaron\OneDrive\Documents\ChatGPT\Mealie container. No files from that old location are needed for the scaffold described above.
-The Windows working copy is retained as a backup; this package does not delete it.
+## Migration history
+
+Originally scaffolded on Windows at `C:\Users\aaron\Documents\Codex\Projects\mealie-container` and transferred to Ubuntu on September 12. Transfer archive: `~/mealie-project-transfer.tar.gz`. The Windows copy remains a backup. No Mealie database or Docker volume was migrated. Ubuntu is the development VM at 192.168.1.52; TrueNAS is the intended final host.

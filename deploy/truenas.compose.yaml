@@ -1,0 +1,23 @@
+# TrueNAS Custom App YAML. Set the three REPLACE values before installing.
+services:
+  bridge:
+    image: ghcr.io/alv0026/mealie-integration:latest
+    restart: unless-stopped
+    ports:
+      - "30068:8000"
+    environment:
+      MEALIE_URL: https://m.tamaleopossuminspace.com
+      MEALIE_TOKEN: REPLACE_WITH_MEALIE_TOKEN
+      BRIDGE_API_KEY: REPLACE_WITH_BRIDGE_API_KEY
+      BRIDGE_DB: /data/bridge.sqlite3
+    volumes:
+      - bridge-data:/data
+    read_only: true
+    tmpfs:
+      - /tmp
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+volumes:
+  bridge-data:
