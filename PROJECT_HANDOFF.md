@@ -2,7 +2,11 @@
 
 ## Current checkpoint — September 13, 2026
 
-The authenticated Python/FastAPI bridge is implemented locally, with tests, a Dockerfile, a development Compose file, a TrueNAS deployment template, and a GitHub Actions test/build/publish workflow. The original Mealie deployment scaffold is retained. Implementation commit `15c6fdf5fb0fe851b603ea42d0ff5d75c34af09c` was pushed to `main`. GitHub Actions run https://github.com/alv0026/mealie-integration/actions/runs/34752868488 passed both the Python 3.13 tests and container build/publication. The image is published as `ghcr.io/alv0026/mealie-integration:latest` and `ghcr.io/alv0026/mealie-integration:sha-15c6fdf5fb0fe851b603ea42d0ff5d75c34af09c`. It has not been deployed to TrueNAS.
+The authenticated Python/FastAPI bridge is implemented locally, with tests, a Dockerfile, a development Compose file, a TrueNAS deployment template, and a GitHub Actions test/build/publish workflow. The original Mealie deployment scaffold is retained. Implementation commit `15c6fdf5fb0fe851b603ea42d0ff5d75c34af09c` was pushed to `main`. GitHub Actions run https://github.com/alv0026/mealie-integration/actions/runs/34752868488 passed both the Python 3.13 tests and container build/publication. The image is published as `ghcr.io/alv0026/mealie-integration:latest` and `ghcr.io/alv0026/mealie-integration:sha-15c6fdf5fb0fe851b603ea42d0ff5d75c34af09c`. It has been deployed to TrueNAS.
+
+## TrueNAS deployment preparation
+
+User confirmed TrueNAS **24.10.2.2**. Official 24.10 documentation confirms Apps > Discover Apps > three-dot menu > Install via YAML. Anonymous GHCR manifest access returned HTTP 200, so no registry login is needed for the published image. Prepared `data/truenas.compose.yaml` with runtime credentials filled in, mode 0600, ignored by Git, and pinned to the verified implementation image tag. Never display its contents in chat or commit it. The user must paste it privately into TrueNAS and save the app as `mealie-bridge`. Proposed port is 30068; its availability has not been checked on TrueNAS. Deployment has been performed or verified.
 
 ## Project and target
 
@@ -56,3 +60,11 @@ After deployment, configure a separate Cloudflare HTTPS hostname for the bridge.
 ## Migration history
 
 Originally scaffolded on Windows at `C:\Users\aaron\Documents\Codex\Projects\mealie-container` and transferred to Ubuntu on September 12. Transfer archive: `~/mealie-project-transfer.tar.gz`. The Windows copy remains a backup. No Mealie database or Docker volume was migrated. Ubuntu is the development VM at 192.168.1.52; TrueNAS is the intended final host.
+
+ ## Deployment and verification
+
+  The bridge is deployed on TrueNAS 24.10.2.2 and available at
+  https://mb.tamaleopossuminspace.com. The health and OpenAPI endpoints
+  respond successfully. Authenticated recipe search and recipe creation
+  through Mealie Assistant in ChatGPT have been tested successfully.
+  Runtime credentials remain private and must not be committed.
